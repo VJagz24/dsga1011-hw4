@@ -14,9 +14,9 @@ from utils import *
 import os
 
 # Set seed
-random.seed(0)
-torch.manual_seed(0)
-torch.cuda.manual_seed(0)
+random.seed(45)
+torch.manual_seed(45)
+torch.cuda.manual_seed(45)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
@@ -40,12 +40,27 @@ def do_train(args, model, train_dataloader, save_dir="./out"):
     ################################
     ##### YOUR CODE BEGINGS HERE ###
 
-    # Implement the training loop --- make sure to use the optimizer and lr_sceduler (learning rate scheduler)
-    # Remember that pytorch uses gradient accumumlation so you need to use zero_grad (https://pytorch.org/tutorials/recipes/recipes/zeroing_out_gradients.html)
-    # You can use progress_bar.update(1) to see the progress during training
-    # You can refer to the pytorch tutorial covered in class for reference
-
-    raise NotImplementedError
+    for epoch in range(num_epochs):
+        for batch in train_dataloader:
+            # Move batch to device
+            batch = {k: v.to(device) for k, v in batch.items()}
+            
+            # Forward pass
+            outputs = model(**batch)
+            loss = outputs.loss
+            
+            # Backward pass
+            loss.backward()
+            
+            # Update weights
+            optimizer.step()
+            lr_scheduler.step()
+            
+            # Zero gradients for next iteration
+            optimizer.zero_grad()
+            
+            # Update progress bar
+            progress_bar.update(1)
 
     ##### YOUR CODE ENDS HERE ######
 
@@ -89,11 +104,29 @@ def create_augmented_dataloader(args, dataset):
     ################################
     ##### YOUR CODE BEGINGS HERE ###
 
-    # Here, 'dataset' is the original dataset. You should return a dataloader called 'train_dataloader' -- this
-    # dataloader will be for the original training split augmented with 5k random transformed examples from the training set.
-    # You may find it helpful to see how the dataloader was created at other place in this code.
-
-    raise NotImplementedError
+    # Get the original training dataset
+    train_dataset = dataset["train"]
+    
+    # Create 5000 random transformed examples from training set
+    num_augmented = 5000
+    random_indices = random.sample(range(len(train_dataset)), num_augmented)
+    augmented_samples = train_dataset.select(random_indices)
+    
+    # Apply transformation to the selected samples
+    transformed_samples = augmented_samples.map(custom_transform, load_from_cache_file=False)
+    
+    # Combine original training data with transformed samples
+    from datasets import concatenate_datasets
+    combined_dataset = concatenate_datasets([train_dataset, transformed_samples])
+    
+    # Tokenize the combined dataset
+    combined_tokenized = combined_dataset.map(tokenize_function, batched=True, load_from_cache_file=False)
+    combined_tokenized = combined_tokenized.remove_columns(["text"])
+    combined_tokenized = combined_tokenized.rename_column("label", "labels")
+    combined_tokenized.set_format("torch")
+    
+    # Create dataloader
+    train_dataloader = DataLoader(combined_tokenized, shuffle=True, batch_size=args.batch_size)
 
     ##### YOUR CODE ENDS HERE ######
 

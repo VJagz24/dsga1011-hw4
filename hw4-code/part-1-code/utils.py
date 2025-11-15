@@ -38,13 +38,45 @@ def custom_transform(example):
     ################################
     ##### YOUR CODE BEGINGS HERE ###
 
-    # Design and implement the transformation as mentioned in pdf
-    # You are free to implement any transformation but the comments at the top roughly describe
-    # how you could implement two of them --- synonym replacement and typos.
-
-    # You should update example["text"] using your transformation
-
-    raise NotImplementedError
+    # Synonym replacement transformation
+    # This replaces random words with their synonyms using WordNet
+    
+    text = example["text"]
+    words = word_tokenize(text)
+    
+    # Probability of replacing each word
+    replace_prob = 0.35  # 35% of words will be replaced
+    
+    new_words = []
+    for word in words:
+        # Randomly decide whether to replace this word
+        if random.random() < replace_prob:
+            # Get synsets for the word
+            synsets = wordnet.synsets(word)
+            
+            if synsets:
+                # Get all lemmas (synonyms) from all synsets
+                synonyms = []
+                for synset in synsets:
+                    for lemma in synset.lemmas():
+                        synonym = lemma.name().replace('_', ' ')
+                        # Only use single-word synonyms and avoid the original word
+                        if ' ' not in synonym and synonym.lower() != word.lower():
+                            synonyms.append(synonym)
+                
+                # If we found synonyms, randomly pick one
+                if synonyms:
+                    new_words.append(random.choice(synonyms))
+                else:
+                    new_words.append(word)
+            else:
+                new_words.append(word)
+        else:
+            new_words.append(word)
+    
+    # Detokenize back to text
+    detokenizer = TreebankWordDetokenizer()
+    example["text"] = detokenizer.detokenize(new_words)
 
     ##### YOUR CODE ENDS HERE ######
 
